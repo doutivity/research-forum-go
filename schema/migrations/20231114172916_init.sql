@@ -51,6 +51,10 @@ CREATE TABLE last_read_comments
     comment_id BIGINT NOT NULL REFERENCES comments (comment_id),
     PRIMARY KEY (user_id, topic_id)
 );
+
+-- Admin has user_id = 1
+INSERT INTO users (username)
+VALUES ('Admin');
 -- +goose StatementEnd
 
 -- +goose Down

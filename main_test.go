@@ -4,8 +4,6 @@ import (
 	"database/sql"
 	"testing"
 
-	"github.com/doutivity/research-forum-go/schema"
-
 	"github.com/stretchr/testify/require"
 
 	_ "github.com/lib/pq"
@@ -25,5 +23,4 @@ func TestPing(t *testing.T) {
 	defer connection.Close()
 
 	require.NoError(t, connection.Ping())
-	require.NoError(t, schema.MigrateUp(connection))
 }

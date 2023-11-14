@@ -19,3 +19,13 @@ func MigrateUp(db *sql.DB) error {
 
 	return goose.Up(db, "migrations")
 }
+
+func MigrateDown(db *sql.DB) error {
+	// goose has a lot of dependencies with ClickHouse and other DB drivers
+	goose.SetBaseFS(migrations)
+	goose.SetTableName("schema_migrations")
+	// PostgreSQL by default
+	// goose.SetDialect("postgres")
+
+	return goose.Down(db, "migrations")
+}

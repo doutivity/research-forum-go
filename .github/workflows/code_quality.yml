@@ -21,8 +21,5 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
-      - name: Install goose
-        run: go install github.com/pressly/goose/v3/cmd/goose@latest
-
       - name: Unit tests
-        run: make test
+        run: make test WAIT_POSTGRES_LAUNCH=15s

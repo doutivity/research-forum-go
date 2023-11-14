@@ -23,7 +23,6 @@ test:
 	sleep $(WAIT_POSTGRES_LAUNCH)
 	make docker-go-version
 	make docker-pg-version
-	make migrate-up
 	make go-test
 	make env-down
 
