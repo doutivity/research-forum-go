@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"log"
+	"os"
 	"testing"
 	"time"
 
@@ -18,25 +20,47 @@ const (
 	dataSourceName = "postgresql://user:secretpassword@postgres1:5432/forum-db?sslmode=disable&timezone=UTC"
 )
 
+var (
+	forumRepository *ForumRepository
+	connection      *sql.DB
+)
+
+func TestMain(m *testing.M) {
+	var err error
+	connection, err = sql.Open("postgres", dataSourceName)
+	if err != nil {
+		log.Fatalf("Failed to open database connection: %v", err)
+	}
+
+	err = schema.MigrateUp(connection)
+	if err != nil {
+		log.Fatalf("Failed to migrate up: %v", err)
+	}
+
+	repository, err := NewRepository(connection)
+	if err != nil {
+		log.Fatalf("Failed to create repository: %v", err)
+	}
+
+	forumRepository = NewForumRepository(repository)
+
+	code := m.Run()
+
+	err = schema.MigrateDown(connection)
+	if err != nil {
+		log.Fatalf("Failed to migrate down: %v", err)
+	}
+
+	repository.Close()
+	connection.Close()
+
+	os.Exit(code)
+}
+
 func TestForumRepositoryTopics(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-
-	connection, err := sql.Open("postgres", dataSourceName)
-	require.NoError(t, err)
-	defer connection.Close()
-
-	require.NoError(t, schema.MigrateUp(connection))
-	defer func() {
-		require.NoError(t, schema.MigrateDown(connection))
-	}()
-
-	repository, err := NewRepository(connection)
-	require.NoError(t, err)
-	defer repository.Close()
-
-	forumRepository := NewForumRepository(repository)
 
 	var (
 		expectedTopic = &domain.Topic{
@@ -62,23 +86,115 @@ func TestForumRepositoryTopics(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []*domain.Topic{expectedTopic}, topics)
 
-	// @TODO get topic by id
+	TopicByID, err := forumRepository.TopicByID(context.Background(), 1)
+	require.NoError(t, err)
+	require.Equal(t, expectedTopic, TopicByID)
 }
 
 func TestForumRepositoryComments(t *testing.T) {
-	// @TODO
 	// add comment 1
+	expectedComment1 := &domain.Comment{
+		ID:              1,
+		ParentCommentID: nil,
+		Content:         "Great topic",
+		CreatedAt:       time.Now().Truncate(time.Second).UTC(),
+		Author: &domain.CommentAuthor{
+			ID:       1,
+			Username: "Admin",
+		},
+	}
+
+	id1, err := forumRepository.CommentCreate(context.Background(), &domain.CommentCreate{
+		ParentCommentID: expectedComment1.ParentCommentID,
+		Content:         expectedComment1.Content,
+		TopicID:         1,
+	}, expectedComment1.CreatedAt, 1)
+	require.NoError(t, err)
+	require.Equal(t, expectedComment1.ID, id1)
+
 	// add comment 2
+	parentComentID := int64(1)
+	expectedComment2 := &domain.Comment{
+		ID:              2,
+		ParentCommentID: &parentComentID,
+		Content:         "no doubt",
+		CreatedAt:       time.Now().Truncate(time.Second).UTC(),
+		Author: &domain.CommentAuthor{
+			ID:       1,
+			Username: "Admin",
+		},
+	}
+
+	id2, err := forumRepository.CommentCreate(context.Background(), &domain.CommentCreate{
+		ParentCommentID: expectedComment2.ParentCommentID,
+		Content:         expectedComment2.Content,
+		TopicID:         1,
+	}, expectedComment2.CreatedAt, 1)
+	require.NoError(t, err)
+	require.Equal(t, expectedComment2.ID, id2)
+
 	// get comments by topic
+	comments, err := forumRepository.CommentsByTopic(context.Background(), 1, 30, 0)
+	require.NoError(t, err)
+	require.Equal(t, []*domain.Comment{expectedComment1, expectedComment2}, comments)
 
 	// update comment 2
+	expectedComment2.Content = "NO DOUBT"
+	err = forumRepository.CommentUpdate(context.Background(), &domain.CommentUpdate{
+		ID:      expectedComment2.ID,
+		Content: expectedComment2.Content,
+	}, time.Now().Truncate(time.Second).UTC(), 1)
+	require.NoError(t, err)
+
 	// get comments by topic
+	commentsUpdated, err := forumRepository.CommentsByTopic(context.Background(), 1, 30, 0)
+	require.NoError(t, err)
+	require.Equal(t, []*domain.Comment{expectedComment1, expectedComment2}, commentsUpdated)
 }
 
 func TestForumRepositoryLikes(t *testing.T) {
-	// @TODO
 	// like comment 1
+	like1time := time.Now().Truncate(time.Second).UTC()
+	err := forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
+		CommentID: 1,
+		LikeAuthor: &domain.LikeAuthor{
+			ID:       1,
+			Username: "Admin",
+		},
+	}, true, like1time)
+	require.NoError(t, err)
+
 	// like comment 2
+	like2time := time.Now().Truncate(time.Second).UTC()
+	err = forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
+		CommentID: 2,
+		LikeAuthor: &domain.LikeAuthor{
+			ID:       1,
+			Username: "Admin",
+		},
+	}, true, like2time)
+	require.NoError(t, err)
+
 	// unlike comment 1
+	err = forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
+		CommentID: 1,
+		LikeAuthor: &domain.LikeAuthor{
+			ID:       1,
+			Username: "Admin",
+		},
+	}, false, time.Now().Truncate(time.Second).UTC())
+	require.NoError(t, err)
+
 	// get active likes for comments
+	likesForComments, err := forumRepository.LikesByCommentIDs(context.Background(), []int64{1, 2})
+	require.NoError(t, err)
+	require.Equal(t, []*domain.Like{
+		{
+			CommentID: 2,
+			CreatedAt: like2time,
+			LikeAuthor: &domain.LikeAuthor{
+				ID:       1,
+				Username: "Admin",
+			},
+		}}, likesForComments)
 }
