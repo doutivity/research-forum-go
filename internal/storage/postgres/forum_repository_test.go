@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/doutivity/research-forum-go/internal/domain"
-	"github.com/doutivity/research-forum-go/internal/storage/postgres/dbs"
 	"github.com/doutivity/research-forum-go/schema"
 
 	"github.com/stretchr/testify/require"
@@ -156,54 +155,46 @@ func TestForumRepositoryComments(t *testing.T) {
 func TestForumRepositoryLikes(t *testing.T) {
 	// like comment 1
 	like1time := time.Now().Truncate(time.Second).UTC()
-	like1, err := forumRepository.LikeNew(context.Background(), &domain.LikeCreate{
+	err := forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
 		CommentID: 1,
 		LikeAuthor: &domain.LikeAuthor{
 			ID:       1,
 			Username: "Admin",
 		},
-	}, like1time)
+	}, true, like1time)
 	require.NoError(t, err)
-	require.Equal(t, like1, dbs.LikesNewRow{CommentID: 1, CreatedBy: 1})
 
 	// like comment 2
 	like2time := time.Now().Truncate(time.Second).UTC()
-	like2, err := forumRepository.LikeNew(context.Background(), &domain.LikeCreate{
+	err = forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
 		CommentID: 2,
 		LikeAuthor: &domain.LikeAuthor{
 			ID:       1,
 			Username: "Admin",
 		},
-	}, like2time)
+	}, true, like2time)
 	require.NoError(t, err)
-	require.Equal(t, dbs.LikesNewRow{CommentID: 2, CreatedBy: 1}, like2)
 
 	// unlike comment 1
-	like1Updated, err := forumRepository.LikeNew(context.Background(), &domain.LikeCreate{
+	err = forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
 		CommentID: 1,
 		LikeAuthor: &domain.LikeAuthor{
 			ID:       1,
 			Username: "Admin",
 		},
-	}, time.Now().Truncate(time.Second).UTC())
+	}, false, time.Now().Truncate(time.Second).UTC())
 	require.NoError(t, err)
-	require.Equal(t, dbs.LikesNewRow{CommentID: 1, CreatedBy: 1}, like1Updated)
 
 	// get active likes for comments
-	comments, err := forumRepository.CommentsByTopic(context.Background(), 1, 30, 0)
+	likesForComments, err := forumRepository.LikesByCommentIDs(context.Background(), []int64{1, 2})
 	require.NoError(t, err)
-
-	var likesForComment1Expected []*domain.Like
-	require.Equal(t, likesForComment1Expected, comments[0].Likes)
-
-	likesForComment2Expected := []*domain.Like{
+	require.Equal(t, []*domain.Like{
 		{
+			CommentID: 2,
 			CreatedAt: like2time,
 			LikeAuthor: &domain.LikeAuthor{
 				ID:       1,
 				Username: "Admin",
 			},
-		},
-	}
-	require.Equal(t, likesForComment2Expected, comments[1].Likes)
+		}}, likesForComments)
 }

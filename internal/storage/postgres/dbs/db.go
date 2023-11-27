@@ -33,11 +33,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.commentsNewStmt, err = db.PrepareContext(ctx, commentsNew); err != nil {
 		return nil, fmt.Errorf("error preparing query CommentsNew: %w", err)
 	}
-	if q.likesByCommentIDStmt, err = db.PrepareContext(ctx, likesByCommentID); err != nil {
-		return nil, fmt.Errorf("error preparing query LikesByCommentID: %w", err)
+	if q.likesByCommentIDsStmt, err = db.PrepareContext(ctx, likesByCommentIDs); err != nil {
+		return nil, fmt.Errorf("error preparing query LikesByCommentIDs: %w", err)
 	}
-	if q.likesNewStmt, err = db.PrepareContext(ctx, likesNew); err != nil {
-		return nil, fmt.Errorf("error preparing query LikesNew: %w", err)
+	if q.likesUpsertStmt, err = db.PrepareContext(ctx, likesUpsert); err != nil {
+		return nil, fmt.Errorf("error preparing query LikesUpsert: %w", err)
 	}
 	if q.topicsStmt, err = db.PrepareContext(ctx, topics); err != nil {
 		return nil, fmt.Errorf("error preparing query Topics: %w", err)
@@ -68,14 +68,14 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing commentsNewStmt: %w", cerr)
 		}
 	}
-	if q.likesByCommentIDStmt != nil {
-		if cerr := q.likesByCommentIDStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing likesByCommentIDStmt: %w", cerr)
+	if q.likesByCommentIDsStmt != nil {
+		if cerr := q.likesByCommentIDsStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing likesByCommentIDsStmt: %w", cerr)
 		}
 	}
-	if q.likesNewStmt != nil {
-		if cerr := q.likesNewStmt.Close(); cerr != nil {
-			err = fmt.Errorf("error closing likesNewStmt: %w", cerr)
+	if q.likesUpsertStmt != nil {
+		if cerr := q.likesUpsertStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing likesUpsertStmt: %w", cerr)
 		}
 	}
 	if q.topicsStmt != nil {
@@ -130,29 +130,29 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                   DBTX
-	tx                   *sql.Tx
-	commentUpdateStmt    *sql.Stmt
-	commentsByTopicStmt  *sql.Stmt
-	commentsNewStmt      *sql.Stmt
-	likesByCommentIDStmt *sql.Stmt
-	likesNewStmt         *sql.Stmt
-	topicsStmt           *sql.Stmt
-	topicsGetByIDStmt    *sql.Stmt
-	topicsNewStmt        *sql.Stmt
+	db                    DBTX
+	tx                    *sql.Tx
+	commentUpdateStmt     *sql.Stmt
+	commentsByTopicStmt   *sql.Stmt
+	commentsNewStmt       *sql.Stmt
+	likesByCommentIDsStmt *sql.Stmt
+	likesUpsertStmt       *sql.Stmt
+	topicsStmt            *sql.Stmt
+	topicsGetByIDStmt     *sql.Stmt
+	topicsNewStmt         *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                   tx,
-		tx:                   tx,
-		commentUpdateStmt:    q.commentUpdateStmt,
-		commentsByTopicStmt:  q.commentsByTopicStmt,
-		commentsNewStmt:      q.commentsNewStmt,
-		likesByCommentIDStmt: q.likesByCommentIDStmt,
-		likesNewStmt:         q.likesNewStmt,
-		topicsStmt:           q.topicsStmt,
-		topicsGetByIDStmt:    q.topicsGetByIDStmt,
-		topicsNewStmt:        q.topicsNewStmt,
+		db:                    tx,
+		tx:                    tx,
+		commentUpdateStmt:     q.commentUpdateStmt,
+		commentsByTopicStmt:   q.commentsByTopicStmt,
+		commentsNewStmt:       q.commentsNewStmt,
+		likesByCommentIDsStmt: q.likesByCommentIDsStmt,
+		likesUpsertStmt:       q.likesUpsertStmt,
+		topicsStmt:            q.topicsStmt,
+		topicsGetByIDStmt:     q.topicsGetByIDStmt,
+		topicsNewStmt:         q.topicsNewStmt,
 	}
 }

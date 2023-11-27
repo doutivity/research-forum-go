@@ -8,42 +8,36 @@ package dbs
 import (
 	"context"
 	"time"
+
+	"github.com/lib/pq"
 )
 
-const likesByCommentID = `-- name: LikesByCommentID :many
-SELECT likes.comment_id, likes.active, likes.created_at, likes.created_by, likes.updated_at, likes.updated_by, users.user_id, users.username
+const likesByCommentIDs = `-- name: LikesByCommentIDs :many
+SELECT likes.comment_id, likes.created_at, users.user_id, users.username
 FROM likes
 JOIN users ON likes.created_by = users.user_id
-WHERE likes.comment_id = $1 AND likes.active = TRUE
+WHERE likes.comment_id = ANY($1::BIGINT[]) AND likes.active = TRUE
 `
 
-type LikesByCommentIDRow struct {
+type LikesByCommentIDsRow struct {
 	CommentID int64
-	Active    bool
 	CreatedAt time.Time
-	CreatedBy int64
-	UpdatedAt time.Time
-	UpdatedBy int64
 	UserID    int64
 	Username  string
 }
 
-func (q *Queries) LikesByCommentID(ctx context.Context, commentID int64) ([]LikesByCommentIDRow, error) {
-	rows, err := q.query(ctx, q.likesByCommentIDStmt, likesByCommentID, commentID)
+func (q *Queries) LikesByCommentIDs(ctx context.Context, commentIds []int64) ([]LikesByCommentIDsRow, error) {
+	rows, err := q.query(ctx, q.likesByCommentIDsStmt, likesByCommentIDs, pq.Array(commentIds))
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []LikesByCommentIDRow
+	var items []LikesByCommentIDsRow
 	for rows.Next() {
-		var i LikesByCommentIDRow
+		var i LikesByCommentIDsRow
 		if err := rows.Scan(
 			&i.CommentID,
-			&i.Active,
 			&i.CreatedAt,
-			&i.CreatedBy,
-			&i.UpdatedAt,
-			&i.UpdatedBy,
 			&i.UserID,
 			&i.Username,
 		); err != nil {
@@ -60,18 +54,17 @@ func (q *Queries) LikesByCommentID(ctx context.Context, commentID int64) ([]Like
 	return items, nil
 }
 
-const likesNew = `-- name: LikesNew :one
+const likesUpsert = `-- name: LikesUpsert :exec
 INSERT INTO likes (comment_id, active, created_at, created_by, updated_at, updated_by)
 VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (comment_id, created_by) 
 DO UPDATE SET 
-    active = NOT likes.active, 
+    active = EXCLUDED.active, 
     updated_at = EXCLUDED.updated_at, 
     updated_by = EXCLUDED.updated_by
-RETURNING comment_id, created_by
 `
 
-type LikesNewParams struct {
+type LikesUpsertParams struct {
 	CommentID int64
 	Active    bool
 	CreatedAt time.Time
@@ -80,13 +73,8 @@ type LikesNewParams struct {
 	UpdatedBy int64
 }
 
-type LikesNewRow struct {
-	CommentID int64
-	CreatedBy int64
-}
-
-func (q *Queries) LikesNew(ctx context.Context, arg LikesNewParams) (LikesNewRow, error) {
-	row := q.queryRow(ctx, q.likesNewStmt, likesNew,
+func (q *Queries) LikesUpsert(ctx context.Context, arg LikesUpsertParams) error {
+	_, err := q.exec(ctx, q.likesUpsertStmt, likesUpsert,
 		arg.CommentID,
 		arg.Active,
 		arg.CreatedAt,
@@ -94,7 +82,5 @@ func (q *Queries) LikesNew(ctx context.Context, arg LikesNewParams) (LikesNewRow
 		arg.UpdatedAt,
 		arg.UpdatedBy,
 	)
-	var i LikesNewRow
-	err := row.Scan(&i.CommentID, &i.CreatedBy)
-	return i, err
+	return err
 }

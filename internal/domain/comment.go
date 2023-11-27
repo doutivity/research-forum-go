@@ -26,6 +26,3 @@ type Comment struct {
 	Author          *CommentAuthor
 	Likes           []*Like
 }
-
-//TODO updated comment
-//TODO deleted comment

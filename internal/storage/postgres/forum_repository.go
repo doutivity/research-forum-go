@@ -17,15 +17,37 @@ func NewForumRepository(db *Repository) *ForumRepository {
 	return &ForumRepository{db: db}
 }
 
-func (r *ForumRepository) LikeNew(
+func (r *ForumRepository) LikesByCommentIDs(
 	ctx context.Context,
-	likeCreate *domain.LikeCreate,
-	createdAt time.Time,
-) (dbs.LikesNewRow, error) {
+	commentIDs []int64,
+) ([]*domain.Like, error) {
+	rows, err := r.db.Queries().LikesByCommentIDs(ctx, commentIDs)
+	if err != nil {
+		return nil, err
+	}
+	likes := make([]*domain.Like, len(rows))
+	for i, row := range rows {
+		likes[i] = &domain.Like{
+			CommentID: row.CommentID,
+			CreatedAt: row.CreatedAt,
+			LikeAuthor: &domain.LikeAuthor{
+				ID:       row.UserID,
+				Username: row.Username,
+			},
+		}
+	}
+	return likes, nil
+}
 
-	return r.db.Queries().LikesNew(ctx, dbs.LikesNewParams{
+func (r *ForumRepository) LikeUpdate(
+	ctx context.Context,
+	likeCreate *domain.LikeUpdate,
+	active bool,
+	createdAt time.Time,
+) error {
+	return r.db.Queries().LikesUpsert(ctx, dbs.LikesUpsertParams{
 		CommentID: likeCreate.CommentID,
-		Active:    true,
+		Active:    active,
 		CreatedAt: createdAt,
 		CreatedBy: likeCreate.LikeAuthor.ID,
 		UpdatedAt: createdAt,
@@ -64,21 +86,6 @@ func (r *ForumRepository) CommentsByTopic(
 
 	comments := make([]*domain.Comment, len(rows))
 	for i, row := range rows {
-		likeRows, err := r.db.Queries().LikesByCommentID(ctx, row.CommentID)
-		if err != nil {
-			return nil, err
-		}
-		var likes []*domain.Like
-		for _, like := range likeRows {
-			likes = append(likes, &domain.Like{
-				CreatedAt: like.CreatedAt,
-				LikeAuthor: &domain.LikeAuthor{
-					ID:       like.CreatedBy,
-					Username: like.Username,
-				},
-			})
-		}
-
 		var parentCommentID *int64
 		if row.ParentCommentID.Valid {
 			parentCommentID = &row.ParentCommentID.Int64
@@ -94,7 +101,6 @@ func (r *ForumRepository) CommentsByTopic(
 				ID:       row.CreatedBy,
 				Username: row.AuthorUsername,
 			},
-			Likes: likes,
 		}
 	}
 	return comments, nil

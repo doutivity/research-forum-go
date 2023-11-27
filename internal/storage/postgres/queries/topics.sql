@@ -24,5 +24,4 @@ SELECT t.topic_id,
        u.username AS author_username
 FROM topics t
          INNER JOIN users u ON (t.created_by = u.user_id)
-WHERE topic_id = sqlc.arg('topic_id')::BIGINT;
-
+WHERE topic_id = @topic_id;

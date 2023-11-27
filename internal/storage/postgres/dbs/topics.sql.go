@@ -76,7 +76,7 @@ SELECT t.topic_id,
        u.username AS author_username
 FROM topics t
          INNER JOIN users u ON (t.created_by = u.user_id)
-WHERE topic_id = $1::BIGINT
+WHERE topic_id = $1
 `
 
 type TopicsGetByIDRow struct {

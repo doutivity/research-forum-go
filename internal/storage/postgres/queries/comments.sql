@@ -15,7 +15,7 @@ FROM
     comments c
     INNER JOIN users u ON c.created_by = u.user_id
 WHERE 
-    c.topic_id = sqlc.arg('topic_id')::BIGINT
+    c.topic_id = @topic_id::BIGINT
 OFFSET 
     sqlc.arg('offset')::BIGINT 
 LIMIT 

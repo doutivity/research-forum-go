@@ -3,6 +3,7 @@ package domain
 import "time"
 
 type Like struct {
+	CommentID  int64
 	CreatedAt  time.Time
 	LikeAuthor *LikeAuthor
 }
@@ -12,7 +13,7 @@ type LikeAuthor struct {
 	Username string
 }
 
-type LikeCreate struct {
+type LikeUpdate struct {
 	CommentID  int64
 	LikeAuthor *LikeAuthor
 }
