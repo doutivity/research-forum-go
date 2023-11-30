@@ -39,6 +39,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.likesUpsertStmt, err = db.PrepareContext(ctx, likesUpsert); err != nil {
 		return nil, fmt.Errorf("error preparing query LikesUpsert: %w", err)
 	}
+	if q.topicLastUpdateNewStmt, err = db.PrepareContext(ctx, topicLastUpdateNew); err != nil {
+		return nil, fmt.Errorf("error preparing query TopicLastUpdateNew: %w", err)
+	}
 	if q.topicsStmt, err = db.PrepareContext(ctx, topics); err != nil {
 		return nil, fmt.Errorf("error preparing query Topics: %w", err)
 	}
@@ -76,6 +79,11 @@ func (q *Queries) Close() error {
 	if q.likesUpsertStmt != nil {
 		if cerr := q.likesUpsertStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing likesUpsertStmt: %w", cerr)
+		}
+	}
+	if q.topicLastUpdateNewStmt != nil {
+		if cerr := q.topicLastUpdateNewStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing topicLastUpdateNewStmt: %w", cerr)
 		}
 	}
 	if q.topicsStmt != nil {
@@ -130,29 +138,31 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                    DBTX
-	tx                    *sql.Tx
-	commentUpdateStmt     *sql.Stmt
-	commentsByTopicStmt   *sql.Stmt
-	commentsNewStmt       *sql.Stmt
-	likesByCommentIDsStmt *sql.Stmt
-	likesUpsertStmt       *sql.Stmt
-	topicsStmt            *sql.Stmt
-	topicsGetByIDStmt     *sql.Stmt
-	topicsNewStmt         *sql.Stmt
+	db                     DBTX
+	tx                     *sql.Tx
+	commentUpdateStmt      *sql.Stmt
+	commentsByTopicStmt    *sql.Stmt
+	commentsNewStmt        *sql.Stmt
+	likesByCommentIDsStmt  *sql.Stmt
+	likesUpsertStmt        *sql.Stmt
+	topicLastUpdateNewStmt *sql.Stmt
+	topicsStmt             *sql.Stmt
+	topicsGetByIDStmt      *sql.Stmt
+	topicsNewStmt          *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                    tx,
-		tx:                    tx,
-		commentUpdateStmt:     q.commentUpdateStmt,
-		commentsByTopicStmt:   q.commentsByTopicStmt,
-		commentsNewStmt:       q.commentsNewStmt,
-		likesByCommentIDsStmt: q.likesByCommentIDsStmt,
-		likesUpsertStmt:       q.likesUpsertStmt,
-		topicsStmt:            q.topicsStmt,
-		topicsGetByIDStmt:     q.topicsGetByIDStmt,
-		topicsNewStmt:         q.topicsNewStmt,
+		db:                     tx,
+		tx:                     tx,
+		commentUpdateStmt:      q.commentUpdateStmt,
+		commentsByTopicStmt:    q.commentsByTopicStmt,
+		commentsNewStmt:        q.commentsNewStmt,
+		likesByCommentIDsStmt:  q.likesByCommentIDsStmt,
+		likesUpsertStmt:        q.likesUpsertStmt,
+		topicLastUpdateNewStmt: q.topicLastUpdateNewStmt,
+		topicsStmt:             q.topicsStmt,
+		topicsGetByIDStmt:      q.topicsGetByIDStmt,
+		topicsNewStmt:          q.topicsNewStmt,
 	}
 }

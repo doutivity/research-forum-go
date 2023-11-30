@@ -26,6 +26,5 @@ func MigrateDown(db *sql.DB) error {
 	goose.SetTableName("schema_migrations")
 	// PostgreSQL by default
 	// goose.SetDialect("postgres")
-
-	return goose.Down(db, "migrations")
+	return goose.DownTo(db, "migrations", 0)
 }
