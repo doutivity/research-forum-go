@@ -19,7 +19,8 @@ SELECT t.topic_id,
        u.username AS author_username
 FROM topics t
          INNER JOIN users u ON (t.created_by = u.user_id)
-ORDER BY t.topic_id DESC
+         INNER JOIN topic_last_update tlu ON (t.topic_id = tlu.topic_id)
+ORDER BY tlu.last_updated_at DESC
 OFFSET $1::BIGINT LIMIT $2::BIGINT
 `
 
