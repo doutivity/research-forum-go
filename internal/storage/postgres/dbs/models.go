@@ -49,6 +49,11 @@ type Topic struct {
 	DeletedBy sql.NullInt64
 }
 
+type TopicLastUpdate struct {
+	TopicID       int64
+	LastUpdatedAt time.Time
+}
+
 type User struct {
 	UserID   int64
 	Username string

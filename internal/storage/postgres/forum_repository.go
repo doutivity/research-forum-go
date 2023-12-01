@@ -118,8 +118,12 @@ func (r *ForumRepository) CommentCreate(
 	} else {
 		parentCommentID = sql.NullInt64{Valid: false}
 	}
+<<<<<<< HEAD
 
 	return r.db.Queries().CommentsNew(ctx, dbs.CommentsNewParams{
+=======
+	id, err := r.db.Queries().CommentsNew(ctx, dbs.CommentsNewParams{
+>>>>>>> dev
 		ParentCommentID: parentCommentID,
 		Content:         comment.Content,
 		TopicID:         comment.TopicID,
@@ -128,6 +132,19 @@ func (r *ForumRepository) CommentCreate(
 		UpdatedAt:       createdAt,
 		UpdatedBy:       createdBy,
 	})
+<<<<<<< HEAD
+=======
+
+	err = r.db.Queries().TopicLastUpdateNew(ctx, dbs.TopicLastUpdateNewParams{
+		TopicID:       comment.TopicID,
+		LastUpdatedAt: createdAt,
+	})
+	if err != nil {
+		return id, err
+	}
+
+	return id, nil
+>>>>>>> dev
 }
 
 func (r *ForumRepository) TopicByID(
@@ -156,7 +173,7 @@ func (r *ForumRepository) TopicCreate(
 	createdAt time.Time,
 	createdBy int64,
 ) (int64, error) {
-	return r.db.Queries().TopicsNew(ctx, dbs.TopicsNewParams{
+	id, err := r.db.Queries().TopicsNew(ctx, dbs.TopicsNewParams{
 		Title:     topic.Title,
 		Content:   topic.Content,
 		CreatedAt: createdAt,
@@ -164,6 +181,18 @@ func (r *ForumRepository) TopicCreate(
 		UpdatedAt: createdAt,
 		UpdatedBy: createdBy,
 	})
+	if err != nil {
+		return id, err
+	}
+
+	err = r.db.Queries().TopicLastUpdateNew(ctx, dbs.TopicLastUpdateNewParams{
+		TopicID:       id,
+		LastUpdatedAt: createdAt,
+	})
+	if err != nil {
+		return id, err
+	}
+	return id, nil
 }
 
 func (r *ForumRepository) Topics(

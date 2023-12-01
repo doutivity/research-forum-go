@@ -61,9 +61,13 @@ func TestForumRepositoryTopics(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
+<<<<<<< HEAD
 
+=======
+	// add topic 1
+>>>>>>> dev
 	var (
-		expectedTopic = &domain.Topic{
+		expectedTopic1 = &domain.Topic{
 			ID:        1,
 			Title:     "DOU Forum on PostgreSQL",
 			Content:   "https://github.com/doutivity/research-forum-go",
@@ -76,19 +80,53 @@ func TestForumRepositoryTopics(t *testing.T) {
 	)
 
 	id, err := forumRepository.TopicCreate(context.Background(), &domain.TopicCreate{
-		Title:   expectedTopic.Title,
-		Content: expectedTopic.Content,
-	}, expectedTopic.CreatedAt, 1)
+		Title:   expectedTopic1.Title,
+		Content: expectedTopic1.Content,
+	}, expectedTopic1.CreatedAt, 1)
 	require.NoError(t, err)
-	require.Equal(t, expectedTopic.ID, id)
+	require.Equal(t, expectedTopic1.ID, id)
 
 	topics, err := forumRepository.Topics(context.Background(), 30, 0)
 	require.NoError(t, err)
-	require.Equal(t, []*domain.Topic{expectedTopic}, topics)
+	require.Equal(t, []*domain.Topic{expectedTopic1}, topics)
 
 	TopicByID, err := forumRepository.TopicByID(context.Background(), 1)
 	require.NoError(t, err)
+<<<<<<< HEAD
 	require.Equal(t, expectedTopic, TopicByID)
+=======
+	require.Equal(t, expectedTopic1, TopicByID)
+
+	// add topic 2
+	var (
+		expectedTopic2 = &domain.Topic{
+			ID:        2,
+			Title:     "DOU Forum on PostgreSQL",
+			Content:   "https://github.com/doutivity/research-forum-go",
+			CreatedAt: time.Now().Truncate(time.Second).UTC().Add(time.Second),
+			Author: &domain.TopicAuthor{
+				ID:       1,
+				Username: "Admin",
+			},
+		}
+	)
+
+	id, err = forumRepository.TopicCreate(context.Background(), &domain.TopicCreate{
+		Title:   expectedTopic2.Title,
+		Content: expectedTopic2.Content,
+	}, expectedTopic2.CreatedAt, 1)
+	require.NoError(t, err)
+	require.Equal(t, expectedTopic2.ID, id)
+
+	TopicByID, err = forumRepository.TopicByID(context.Background(), 2)
+	require.NoError(t, err)
+	require.Equal(t, expectedTopic2, TopicByID)
+
+	// get topics
+	topics, err = forumRepository.Topics(context.Background(), 30, 0)
+	require.NoError(t, err)
+	require.Equal(t, []*domain.Topic{expectedTopic2, expectedTopic1}, topics)
+>>>>>>> dev
 }
 
 func TestForumRepositoryComments(t *testing.T) {
@@ -150,6 +188,37 @@ func TestForumRepositoryComments(t *testing.T) {
 	commentsUpdated, err := forumRepository.CommentsByTopic(context.Background(), 1, 30, 0)
 	require.NoError(t, err)
 	require.Equal(t, []*domain.Comment{expectedComment1, expectedComment2}, commentsUpdated)
+<<<<<<< HEAD
+=======
+}
+
+func TestForumRepositoryTopicsOrder(t *testing.T) {
+	// add comment to topic 1 1
+	expectedComment1 := &domain.Comment{
+		ID:              3,
+		ParentCommentID: nil,
+		Content:         "Great topic",
+		CreatedAt:       time.Now().Truncate(time.Second).UTC().Add(time.Second * 2),
+		Author: &domain.CommentAuthor{
+			ID:       1,
+			Username: "Admin",
+		},
+	}
+
+	id1, err := forumRepository.CommentCreate(context.Background(), &domain.CommentCreate{
+		ParentCommentID: expectedComment1.ParentCommentID,
+		Content:         expectedComment1.Content,
+		TopicID:         1,
+	}, expectedComment1.CreatedAt, 1)
+	require.NoError(t, err)
+	require.Equal(t, expectedComment1.ID, id1)
+
+	// get topics
+	topics, err := forumRepository.Topics(context.Background(), 30, 0)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), topics[0].ID)
+	require.Equal(t, int64(2), topics[1].ID)
+>>>>>>> dev
 }
 
 func TestForumRepositoryLikes(t *testing.T) {
