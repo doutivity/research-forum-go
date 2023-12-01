@@ -61,11 +61,7 @@ func TestForumRepositoryTopics(t *testing.T) {
 	if testing.Short() {
 		t.Skip()
 	}
-<<<<<<< HEAD
-
-=======
 	// add topic 1
->>>>>>> dev
 	var (
 		expectedTopic1 = &domain.Topic{
 			ID:        1,
@@ -92,9 +88,6 @@ func TestForumRepositoryTopics(t *testing.T) {
 
 	TopicByID, err := forumRepository.TopicByID(context.Background(), 1)
 	require.NoError(t, err)
-<<<<<<< HEAD
-	require.Equal(t, expectedTopic, TopicByID)
-=======
 	require.Equal(t, expectedTopic1, TopicByID)
 
 	// add topic 2
@@ -126,7 +119,6 @@ func TestForumRepositoryTopics(t *testing.T) {
 	topics, err = forumRepository.Topics(context.Background(), 30, 0)
 	require.NoError(t, err)
 	require.Equal(t, []*domain.Topic{expectedTopic2, expectedTopic1}, topics)
->>>>>>> dev
 }
 
 func TestForumRepositoryComments(t *testing.T) {
@@ -188,8 +180,6 @@ func TestForumRepositoryComments(t *testing.T) {
 	commentsUpdated, err := forumRepository.CommentsByTopic(context.Background(), 1, 30, 0)
 	require.NoError(t, err)
 	require.Equal(t, []*domain.Comment{expectedComment1, expectedComment2}, commentsUpdated)
-<<<<<<< HEAD
-=======
 }
 
 func TestForumRepositoryTopicsOrder(t *testing.T) {
@@ -218,7 +208,6 @@ func TestForumRepositoryTopicsOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), topics[0].ID)
 	require.Equal(t, int64(2), topics[1].ID)
->>>>>>> dev
 }
 
 func TestForumRepositoryLikes(t *testing.T) {

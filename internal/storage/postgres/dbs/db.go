@@ -81,14 +81,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing likesUpsertStmt: %w", cerr)
 		}
 	}
-<<<<<<< HEAD
-=======
 	if q.topicLastUpdateNewStmt != nil {
 		if cerr := q.topicLastUpdateNewStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing topicLastUpdateNewStmt: %w", cerr)
 		}
 	}
->>>>>>> dev
 	if q.topicsStmt != nil {
 		if cerr := q.topicsStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing topicsStmt: %w", cerr)

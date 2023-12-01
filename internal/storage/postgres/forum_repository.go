@@ -118,12 +118,7 @@ func (r *ForumRepository) CommentCreate(
 	} else {
 		parentCommentID = sql.NullInt64{Valid: false}
 	}
-<<<<<<< HEAD
-
-	return r.db.Queries().CommentsNew(ctx, dbs.CommentsNewParams{
-=======
 	id, err := r.db.Queries().CommentsNew(ctx, dbs.CommentsNewParams{
->>>>>>> dev
 		ParentCommentID: parentCommentID,
 		Content:         comment.Content,
 		TopicID:         comment.TopicID,
@@ -132,8 +127,6 @@ func (r *ForumRepository) CommentCreate(
 		UpdatedAt:       createdAt,
 		UpdatedBy:       createdBy,
 	})
-<<<<<<< HEAD
-=======
 
 	err = r.db.Queries().TopicLastUpdateNew(ctx, dbs.TopicLastUpdateNewParams{
 		TopicID:       comment.TopicID,
@@ -144,7 +137,6 @@ func (r *ForumRepository) CommentCreate(
 	}
 
 	return id, nil
->>>>>>> dev
 }
 
 func (r *ForumRepository) TopicByID(
