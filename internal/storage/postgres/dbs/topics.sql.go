@@ -7,6 +7,7 @@ package dbs
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
@@ -103,6 +104,50 @@ func (q *Queries) TopicsGetByID(ctx context.Context, topicID int64) (TopicsGetBy
 	return i, err
 }
 
+const topicsGetByIDWithLastReadComment = `-- name: TopicsGetByIDWithLastReadComment :one
+SELECT t.topic_id,
+       t.title,
+       t.content,
+       t.created_at,
+       t.created_by,
+       u.username AS author_username,
+       lrc.comment_id AS last_read_comment_id
+FROM topics t
+         INNER JOIN users u ON t.created_by = u.user_id
+         LEFT JOIN last_read_comments lrc ON t.topic_id = lrc.topic_id AND lrc.user_id = $1
+WHERE t.topic_id = $2
+`
+
+type TopicsGetByIDWithLastReadCommentParams struct {
+	UserID  int64
+	TopicID int64
+}
+
+type TopicsGetByIDWithLastReadCommentRow struct {
+	TopicID           int64
+	Title             string
+	Content           string
+	CreatedAt         time.Time
+	CreatedBy         int64
+	AuthorUsername    string
+	LastReadCommentID sql.NullInt64
+}
+
+func (q *Queries) TopicsGetByIDWithLastReadComment(ctx context.Context, arg TopicsGetByIDWithLastReadCommentParams) (TopicsGetByIDWithLastReadCommentRow, error) {
+	row := q.queryRow(ctx, q.topicsGetByIDWithLastReadCommentStmt, topicsGetByIDWithLastReadComment, arg.UserID, arg.TopicID)
+	var i TopicsGetByIDWithLastReadCommentRow
+	err := row.Scan(
+		&i.TopicID,
+		&i.Title,
+		&i.Content,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.AuthorUsername,
+		&i.LastReadCommentID,
+	)
+	return i, err
+}
+
 const topicsNew = `-- name: TopicsNew :one
 INSERT INTO topics (title, content, created_at, created_by, updated_at, updated_by)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -130,4 +175,79 @@ func (q *Queries) TopicsNew(ctx context.Context, arg TopicsNewParams) (int64, er
 	var topic_id int64
 	err := row.Scan(&topic_id)
 	return topic_id, err
+}
+
+const topicsWithUnreadCommentsNumber = `-- name: TopicsWithUnreadCommentsNumber :many
+SELECT
+    t.topic_id,
+    t.title,
+    t.content,
+    t.created_at,
+    t.created_by,
+    u.username AS author_username,
+    (
+        SELECT
+            COUNT(*)
+        FROM
+            comments c
+        WHERE
+            c.topic_id = t.topic_id
+            AND (lrc.comment_id IS NULL
+                OR c.comment_id > lrc.comment_id)) AS unread_comments_count
+FROM
+    topics t
+    INNER JOIN users u ON t.created_by = u.user_id
+    INNER JOIN topic_last_update tlu ON t.topic_id = tlu.topic_id
+    LEFT JOIN last_read_comments lrc ON t.topic_id = lrc.topic_id
+        AND lrc.user_id = $1
+    ORDER BY
+        tlu.last_updated_at DESC OFFSET $2::bigint
+LIMIT $3::bigint
+`
+
+type TopicsWithUnreadCommentsNumberParams struct {
+	ReadByUserID int64
+	Offset       int64
+	Limit        int64
+}
+
+type TopicsWithUnreadCommentsNumberRow struct {
+	TopicID             int64
+	Title               string
+	Content             string
+	CreatedAt           time.Time
+	CreatedBy           int64
+	AuthorUsername      string
+	UnreadCommentsCount int64
+}
+
+func (q *Queries) TopicsWithUnreadCommentsNumber(ctx context.Context, arg TopicsWithUnreadCommentsNumberParams) ([]TopicsWithUnreadCommentsNumberRow, error) {
+	rows, err := q.query(ctx, q.topicsWithUnreadCommentsNumberStmt, topicsWithUnreadCommentsNumber, arg.ReadByUserID, arg.Offset, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopicsWithUnreadCommentsNumberRow
+	for rows.Next() {
+		var i TopicsWithUnreadCommentsNumberRow
+		if err := rows.Scan(
+			&i.TopicID,
+			&i.Title,
+			&i.Content,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.AuthorUsername,
+			&i.UnreadCommentsCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
