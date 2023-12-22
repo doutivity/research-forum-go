@@ -41,17 +41,18 @@ func (r *ForumRepository) LikesByCommentIDs(
 
 func (r *ForumRepository) LikeUpdate(
 	ctx context.Context,
-	likeCreate *domain.LikeUpdate,
+	commentID int64,
 	active bool,
 	createdAt time.Time,
+	createdBy int64,
 ) error {
 	return r.db.Queries().LikesUpsert(ctx, dbs.LikesUpsertParams{
-		CommentID: likeCreate.CommentID,
+		CommentID: commentID,
 		Active:    active,
 		CreatedAt: createdAt,
-		CreatedBy: likeCreate.LikeAuthor.ID,
+		CreatedBy: createdBy,
 		UpdatedAt: createdAt,
-		UpdatedBy: likeCreate.LikeAuthor.ID,
+		UpdatedBy: createdBy,
 	})
 }
 
@@ -118,22 +119,42 @@ func (r *ForumRepository) CommentCreate(
 	} else {
 		parentCommentID = sql.NullInt64{Valid: false}
 	}
-	id, err := r.db.Queries().CommentsNew(ctx, dbs.CommentsNewParams{
-		ParentCommentID: parentCommentID,
-		Content:         comment.Content,
-		TopicID:         comment.TopicID,
-		CreatedAt:       createdAt,
-		CreatedBy:       createdBy,
-		UpdatedAt:       createdAt,
-		UpdatedBy:       createdBy,
-	})
 
-	err = r.db.Queries().TopicLastUpdateNew(ctx, dbs.TopicLastUpdateNewParams{
-		TopicID:       comment.TopicID,
-		LastUpdatedAt: createdAt,
+	var id int64
+
+	txErr := r.db.WithTransaction(ctx, func(queries *dbs.Queries) error {
+		txID, err := queries.CommentsNew(ctx, dbs.CommentsNewParams{
+			ParentCommentID: parentCommentID,
+			Content:         comment.Content,
+			TopicID:         comment.TopicID,
+			CreatedAt:       createdAt,
+			CreatedBy:       createdBy,
+			UpdatedAt:       createdAt,
+			UpdatedBy:       createdBy,
+		})
+		if err != nil {
+			return err
+		}
+
+		err = queries.TopicLastUpdateNew(ctx, dbs.TopicLastUpdateNewParams{
+			TopicID:       comment.TopicID,
+			LastUpdatedAt: createdAt,
+		})
+		if err != nil {
+			return err
+		}
+
+		err = queries.TopicsCommentStatsCountInc(ctx, comment.TopicID)
+		if err != nil {
+			return err
+		}
+
+		id = txID
+
+		return nil
 	})
-	if err != nil {
-		return id, err
+	if txErr != nil {
+		return 0, txErr
 	}
 
 	return id, nil
@@ -219,25 +240,42 @@ func (r *ForumRepository) TopicCreate(
 	createdAt time.Time,
 	createdBy int64,
 ) (int64, error) {
-	id, err := r.db.Queries().TopicsNew(ctx, dbs.TopicsNewParams{
-		Title:     topic.Title,
-		Content:   topic.Content,
-		CreatedAt: createdAt,
-		CreatedBy: createdBy,
-		UpdatedAt: createdAt,
-		UpdatedBy: createdBy,
+	var id int64
+
+	txErr := r.db.WithTransaction(ctx, func(queries *dbs.Queries) error {
+		txID, err := queries.TopicsNew(ctx, dbs.TopicsNewParams{
+			Title:     topic.Title,
+			Content:   topic.Content,
+			CreatedAt: createdAt,
+			CreatedBy: createdBy,
+			UpdatedAt: createdAt,
+			UpdatedBy: createdBy,
+		})
+		if err != nil {
+			return err
+		}
+
+		err = queries.TopicLastUpdateNew(ctx, dbs.TopicLastUpdateNewParams{
+			TopicID:       txID,
+			LastUpdatedAt: createdAt,
+		})
+		if err != nil {
+			return err
+		}
+
+		err = queries.TopicsCommentStatsNew(ctx, txID)
+		if err != nil {
+			return err
+		}
+
+		id = txID
+
+		return nil
 	})
-	if err != nil {
-		return id, err
+	if txErr != nil {
+		return 0, txErr
 	}
 
-	err = r.db.Queries().TopicLastUpdateNew(ctx, dbs.TopicLastUpdateNewParams{
-		TopicID:       id,
-		LastUpdatedAt: createdAt,
-	})
-	if err != nil {
-		return id, err
-	}
 	return id, nil
 }
 
@@ -272,12 +310,12 @@ func (r *ForumRepository) Topics(
 
 func (r *ForumRepository) TopicsWithUnreadCommentsNumber(
 	ctx context.Context,
-	userId int64,
+	userID int64,
 	limit int64,
 	offset int64,
 ) ([]*domain.TopicsWithUnreadCommentsNumber, error) {
 	rows, err := r.db.Queries().TopicsWithUnreadCommentsNumber(ctx, dbs.TopicsWithUnreadCommentsNumberParams{
-		ReadByUserID: userId,
+		ReadByUserID: userID,
 		Offset:       offset,
 		Limit:        limit,
 	})
