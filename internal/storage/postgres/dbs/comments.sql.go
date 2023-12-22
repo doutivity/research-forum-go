@@ -36,6 +36,44 @@ func (q *Queries) CommentUpdate(ctx context.Context, arg CommentUpdateParams) er
 	return err
 }
 
+const commentsByID = `-- name: CommentsByID :one
+SELECT 
+    c.comment_id,
+    c.parent_comment_id,
+    c.content,
+    c.created_by,
+    c.created_at,
+    u.username AS author_username
+FROM 
+    comments c
+    INNER JOIN users u ON c.created_by = u.user_id
+WHERE 
+    c.comment_id = $1
+`
+
+type CommentsByIDRow struct {
+	CommentID       int64
+	ParentCommentID sql.NullInt64
+	Content         string
+	CreatedBy       int64
+	CreatedAt       time.Time
+	AuthorUsername  string
+}
+
+func (q *Queries) CommentsByID(ctx context.Context, commentID int64) (CommentsByIDRow, error) {
+	row := q.queryRow(ctx, q.commentsByIDStmt, commentsByID, commentID)
+	var i CommentsByIDRow
+	err := row.Scan(
+		&i.CommentID,
+		&i.ParentCommentID,
+		&i.Content,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.AuthorUsername,
+	)
+	return i, err
+}
+
 const commentsByTopic = `-- name: CommentsByTopic :many
 SELECT 
     c.comment_id,

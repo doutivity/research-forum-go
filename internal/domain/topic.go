@@ -19,3 +19,13 @@ type Topic struct {
 	CreatedAt time.Time
 	Author    *TopicAuthor
 }
+
+type TopicsWithUnreadCommentsNumber struct {
+	Topic                *Topic
+	UnreadCommentsNumber int64
+}
+
+type TopicWithUnreadComment struct {
+	Topic   *Topic
+	Comment *Comment
+}

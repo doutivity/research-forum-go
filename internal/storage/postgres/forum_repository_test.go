@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"os"
 	"testing"
@@ -74,6 +75,8 @@ func TestForumRepositoryTopics(t *testing.T) {
 			},
 		}
 	)
+
+	fmt.Println(time.Now().Truncate(time.Second).UTC())
 
 	id, err := forumRepository.TopicCreate(context.Background(), &domain.TopicCreate{
 		Title:   expectedTopic1.Title,
@@ -183,7 +186,7 @@ func TestForumRepositoryComments(t *testing.T) {
 }
 
 func TestForumRepositoryTopicsOrder(t *testing.T) {
-	// add comment to topic 1 1
+	// add comment to topic 1
 	expectedComment1 := &domain.Comment{
 		ID:              3,
 		ParentCommentID: nil,
@@ -255,4 +258,35 @@ func TestForumRepositoryLikes(t *testing.T) {
 				Username: "Admin",
 			},
 		}}, likesForComments)
+}
+
+func TestForumRepositoryTopicsWithUnreadCommentsNumber(t *testing.T) {
+	// get topics
+	topics, err := forumRepository.TopicsWithUnreadCommentsNumber(context.Background(), 1, 30, 0)
+	require.NoError(t, err)
+	require.Equal(t, int64(3), topics[0].UnreadCommentsNumber)
+	require.Equal(t, int64(0), topics[1].UnreadCommentsNumber)
+
+	// read comment 1 and comment 2 from topic 1
+	err = forumRepository.LastReadCommentsCreate(context.Background(), domain.ReadComment{
+		TopicId:   1,
+		CommentId: 2,
+	}, 1)
+	require.NoError(t, err)
+
+	// get topics
+	topics, err = forumRepository.TopicsWithUnreadCommentsNumber(context.Background(), 1, 30, 0)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), topics[0].UnreadCommentsNumber)
+	require.Equal(t, int64(0), topics[1].UnreadCommentsNumber)
+
+	// last read comment after reading comment 1 and comment 2 from topic 1
+	topic, err := forumRepository.TopicByIDWithLastReadComment(context.Background(), 1, 1)
+	require.NoError(t, err)
+	require.Equal(t, int64(2), topic.Comment.ID)
+
+	// last read comment = null from topic 1
+	topic, err = forumRepository.TopicByIDWithLastReadComment(context.Background(), 2, 1)
+	require.NoError(t, err)
+	require.Nil(t, topic.Comment)
 }

@@ -26,3 +26,8 @@ type Comment struct {
 	Author          *CommentAuthor
 	Likes           []*Like
 }
+
+type ReadComment struct {
+	TopicId   int64
+	CommentId int64
+}

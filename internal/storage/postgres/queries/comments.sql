@@ -21,6 +21,20 @@ OFFSET
 LIMIT 
     sqlc.arg('limit')::BIGINT;
 
+-- name: CommentsByID :one
+SELECT 
+    c.comment_id,
+    c.parent_comment_id,
+    c.content,
+    c.created_by,
+    c.created_at,
+    u.username AS author_username
+FROM 
+    comments c
+    INNER JOIN users u ON c.created_by = u.user_id
+WHERE 
+    c.comment_id = @comment_id;
+
 -- name: CommentUpdate :exec
 UPDATE comments
 SET content = @content, 

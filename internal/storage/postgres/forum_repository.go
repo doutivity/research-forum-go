@@ -159,6 +159,60 @@ func (r *ForumRepository) TopicByID(
 	}, nil
 }
 
+func (r *ForumRepository) TopicByIDWithLastReadComment(
+	ctx context.Context,
+	topicID int64,
+	userID int64,
+) (*domain.TopicWithUnreadComment, error) {
+	topic, err := r.db.Queries().TopicsGetByIDWithLastReadComment(ctx, dbs.TopicsGetByIDWithLastReadCommentParams{
+		UserID:  userID,
+		TopicID: topicID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	topicWithUnreadComment := &domain.TopicWithUnreadComment{
+		Topic: &domain.Topic{
+			ID:        topic.TopicID,
+			Title:     topic.Title,
+			Content:   topic.Content,
+			CreatedAt: topic.CreatedAt,
+			Author: &domain.TopicAuthor{
+				ID:       topic.CreatedBy,
+				Username: topic.AuthorUsername,
+			},
+		},
+		Comment: nil,
+	}
+	if !topic.LastReadCommentID.Valid {
+		return topicWithUnreadComment, nil
+	}
+
+	comment, err := r.db.Queries().CommentsByID(ctx, topic.LastReadCommentID.Int64)
+	if err != nil {
+		return nil, err
+	}
+	var parentCommentID *int64
+	if comment.ParentCommentID.Valid {
+		parentCommentID = &comment.ParentCommentID.Int64
+	} else {
+		parentCommentID = nil
+	}
+
+	topicWithUnreadComment.Comment = &domain.Comment{
+		ID:              comment.CommentID,
+		ParentCommentID: parentCommentID,
+		Content:         comment.Content,
+		CreatedAt:       comment.CreatedAt,
+		Author: &domain.CommentAuthor{
+			ID:       comment.CreatedBy,
+			Username: comment.AuthorUsername,
+		},
+	}
+	return topicWithUnreadComment, nil
+}
+
 func (r *ForumRepository) TopicCreate(
 	ctx context.Context,
 	topic *domain.TopicCreate,
@@ -214,4 +268,50 @@ func (r *ForumRepository) Topics(
 		}
 	}
 	return topics, nil
+}
+
+func (r *ForumRepository) TopicsWithUnreadCommentsNumber(
+	ctx context.Context,
+	userId int64,
+	limit int64,
+	offset int64,
+) ([]*domain.TopicsWithUnreadCommentsNumber, error) {
+	rows, err := r.db.Queries().TopicsWithUnreadCommentsNumber(ctx, dbs.TopicsWithUnreadCommentsNumberParams{
+		ReadByUserID: userId,
+		Offset:       offset,
+		Limit:        limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	topics := make([]*domain.TopicsWithUnreadCommentsNumber, len(rows))
+	for i, row := range rows {
+		topics[i] = &domain.TopicsWithUnreadCommentsNumber{
+			Topic: &domain.Topic{
+				ID:        row.TopicID,
+				Title:     row.Title,
+				Content:   row.Content,
+				CreatedAt: row.CreatedAt,
+				Author: &domain.TopicAuthor{
+					ID:       row.CreatedBy,
+					Username: row.AuthorUsername,
+				},
+			},
+			UnreadCommentsNumber: row.UnreadCommentsCount,
+		}
+	}
+	return topics, nil
+}
+
+func (r *ForumRepository) LastReadCommentsCreate(
+	ctx context.Context,
+	readComment domain.ReadComment,
+	userId int64,
+) error {
+	return r.db.Queries().LastReadCommentsNew(ctx, dbs.LastReadCommentsNewParams{
+		UserID:    userId,
+		CommentID: readComment.CommentId,
+		TopicID:   readComment.TopicId,
+	})
 }

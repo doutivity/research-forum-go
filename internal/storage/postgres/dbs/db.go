@@ -27,11 +27,17 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.commentUpdateStmt, err = db.PrepareContext(ctx, commentUpdate); err != nil {
 		return nil, fmt.Errorf("error preparing query CommentUpdate: %w", err)
 	}
+	if q.commentsByIDStmt, err = db.PrepareContext(ctx, commentsByID); err != nil {
+		return nil, fmt.Errorf("error preparing query CommentsByID: %w", err)
+	}
 	if q.commentsByTopicStmt, err = db.PrepareContext(ctx, commentsByTopic); err != nil {
 		return nil, fmt.Errorf("error preparing query CommentsByTopic: %w", err)
 	}
 	if q.commentsNewStmt, err = db.PrepareContext(ctx, commentsNew); err != nil {
 		return nil, fmt.Errorf("error preparing query CommentsNew: %w", err)
+	}
+	if q.lastReadCommentsNewStmt, err = db.PrepareContext(ctx, lastReadCommentsNew); err != nil {
+		return nil, fmt.Errorf("error preparing query LastReadCommentsNew: %w", err)
 	}
 	if q.likesByCommentIDsStmt, err = db.PrepareContext(ctx, likesByCommentIDs); err != nil {
 		return nil, fmt.Errorf("error preparing query LikesByCommentIDs: %w", err)
@@ -48,8 +54,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.topicsGetByIDStmt, err = db.PrepareContext(ctx, topicsGetByID); err != nil {
 		return nil, fmt.Errorf("error preparing query TopicsGetByID: %w", err)
 	}
+	if q.topicsGetByIDWithLastReadCommentStmt, err = db.PrepareContext(ctx, topicsGetByIDWithLastReadComment); err != nil {
+		return nil, fmt.Errorf("error preparing query TopicsGetByIDWithLastReadComment: %w", err)
+	}
 	if q.topicsNewStmt, err = db.PrepareContext(ctx, topicsNew); err != nil {
 		return nil, fmt.Errorf("error preparing query TopicsNew: %w", err)
+	}
+	if q.topicsWithUnreadCommentsNumberStmt, err = db.PrepareContext(ctx, topicsWithUnreadCommentsNumber); err != nil {
+		return nil, fmt.Errorf("error preparing query TopicsWithUnreadCommentsNumber: %w", err)
 	}
 	return &q, nil
 }
@@ -61,6 +73,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing commentUpdateStmt: %w", cerr)
 		}
 	}
+	if q.commentsByIDStmt != nil {
+		if cerr := q.commentsByIDStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing commentsByIDStmt: %w", cerr)
+		}
+	}
 	if q.commentsByTopicStmt != nil {
 		if cerr := q.commentsByTopicStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing commentsByTopicStmt: %w", cerr)
@@ -69,6 +86,11 @@ func (q *Queries) Close() error {
 	if q.commentsNewStmt != nil {
 		if cerr := q.commentsNewStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing commentsNewStmt: %w", cerr)
+		}
+	}
+	if q.lastReadCommentsNewStmt != nil {
+		if cerr := q.lastReadCommentsNewStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing lastReadCommentsNewStmt: %w", cerr)
 		}
 	}
 	if q.likesByCommentIDsStmt != nil {
@@ -96,9 +118,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing topicsGetByIDStmt: %w", cerr)
 		}
 	}
+	if q.topicsGetByIDWithLastReadCommentStmt != nil {
+		if cerr := q.topicsGetByIDWithLastReadCommentStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing topicsGetByIDWithLastReadCommentStmt: %w", cerr)
+		}
+	}
 	if q.topicsNewStmt != nil {
 		if cerr := q.topicsNewStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing topicsNewStmt: %w", cerr)
+		}
+	}
+	if q.topicsWithUnreadCommentsNumberStmt != nil {
+		if cerr := q.topicsWithUnreadCommentsNumberStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing topicsWithUnreadCommentsNumberStmt: %w", cerr)
 		}
 	}
 	return err
@@ -138,31 +170,39 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 }
 
 type Queries struct {
-	db                     DBTX
-	tx                     *sql.Tx
-	commentUpdateStmt      *sql.Stmt
-	commentsByTopicStmt    *sql.Stmt
-	commentsNewStmt        *sql.Stmt
-	likesByCommentIDsStmt  *sql.Stmt
-	likesUpsertStmt        *sql.Stmt
-	topicLastUpdateNewStmt *sql.Stmt
-	topicsStmt             *sql.Stmt
-	topicsGetByIDStmt      *sql.Stmt
-	topicsNewStmt          *sql.Stmt
+	db                                   DBTX
+	tx                                   *sql.Tx
+	commentUpdateStmt                    *sql.Stmt
+	commentsByIDStmt                     *sql.Stmt
+	commentsByTopicStmt                  *sql.Stmt
+	commentsNewStmt                      *sql.Stmt
+	lastReadCommentsNewStmt              *sql.Stmt
+	likesByCommentIDsStmt                *sql.Stmt
+	likesUpsertStmt                      *sql.Stmt
+	topicLastUpdateNewStmt               *sql.Stmt
+	topicsStmt                           *sql.Stmt
+	topicsGetByIDStmt                    *sql.Stmt
+	topicsGetByIDWithLastReadCommentStmt *sql.Stmt
+	topicsNewStmt                        *sql.Stmt
+	topicsWithUnreadCommentsNumberStmt   *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
-		db:                     tx,
-		tx:                     tx,
-		commentUpdateStmt:      q.commentUpdateStmt,
-		commentsByTopicStmt:    q.commentsByTopicStmt,
-		commentsNewStmt:        q.commentsNewStmt,
-		likesByCommentIDsStmt:  q.likesByCommentIDsStmt,
-		likesUpsertStmt:        q.likesUpsertStmt,
-		topicLastUpdateNewStmt: q.topicLastUpdateNewStmt,
-		topicsStmt:             q.topicsStmt,
-		topicsGetByIDStmt:      q.topicsGetByIDStmt,
-		topicsNewStmt:          q.topicsNewStmt,
+		db:                                   tx,
+		tx:                                   tx,
+		commentUpdateStmt:                    q.commentUpdateStmt,
+		commentsByIDStmt:                     q.commentsByIDStmt,
+		commentsByTopicStmt:                  q.commentsByTopicStmt,
+		commentsNewStmt:                      q.commentsNewStmt,
+		lastReadCommentsNewStmt:              q.lastReadCommentsNewStmt,
+		likesByCommentIDsStmt:                q.likesByCommentIDsStmt,
+		likesUpsertStmt:                      q.likesUpsertStmt,
+		topicLastUpdateNewStmt:               q.topicLastUpdateNewStmt,
+		topicsStmt:                           q.topicsStmt,
+		topicsGetByIDStmt:                    q.topicsGetByIDStmt,
+		topicsGetByIDWithLastReadCommentStmt: q.topicsGetByIDWithLastReadCommentStmt,
+		topicsNewStmt:                        q.topicsNewStmt,
+		topicsWithUnreadCommentsNumberStmt:   q.topicsWithUnreadCommentsNumberStmt,
 	}
 }
