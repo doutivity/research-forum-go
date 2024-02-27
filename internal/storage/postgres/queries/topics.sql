@@ -23,7 +23,7 @@ FROM topics t
          INNER JOIN users u ON (t.created_by = u.user_id)
          INNER JOIN topic_last_update tlu ON (t.topic_id = tlu.topic_id)
 ORDER BY tlu.last_updated_at DESC
-OFFSET sqlc.arg('offset')::BIGINT LIMIT sqlc.arg('limit')::BIGINT;
+OFFSET sqlc.arg('offset') LIMIT sqlc.arg('limit');
 
 -- name: TopicsWithUnreadCommentsNumber :many
 SELECT t.topic_id,
@@ -43,7 +43,7 @@ FROM topics t
          LEFT JOIN last_read_comments lrc ON t.topic_id = lrc.topic_id
     AND lrc.user_id = @read_by_user_id
 ORDER BY tlu.last_updated_at DESC
-OFFSET sqlc.arg('offset')::BIGINT LIMIT sqlc.arg('limit')::BIGINT;
+OFFSET sqlc.arg('offset') LIMIT sqlc.arg('limit');
 
 -- name: TopicsGetByID :one
 SELECT t.topic_id,
@@ -62,7 +62,7 @@ SELECT t.topic_id,
        t.content,
        t.created_at,
        t.created_by,
-       u.username AS author_username,
+       u.username     AS author_username,
        lrc.comment_id AS last_read_comment_id
 FROM topics t
          INNER JOIN users u ON t.created_by = u.user_id

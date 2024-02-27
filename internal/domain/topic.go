@@ -26,6 +26,6 @@ type TopicsWithUnreadCommentsNumber struct {
 }
 
 type TopicWithUnreadComment struct {
-	Topic   *Topic
-	Comment *Comment
+	Topic             *Topic
+	LastReadCommentID int64
 }

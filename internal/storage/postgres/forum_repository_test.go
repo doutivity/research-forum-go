@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -23,37 +22,38 @@ const (
 
 var (
 	forumRepository *ForumRepository
-	connection      *sql.DB
 )
 
 func TestMain(m *testing.M) {
-	var err error
-	connection, err = sql.Open("postgres", dataSourceName)
-	if err != nil {
-		log.Fatalf("Failed to open database connection: %v", err)
-	}
+	var code int
 
-	err = schema.MigrateUp(connection)
-	if err != nil {
-		log.Fatalf("Failed to migrate up: %v", err)
-	}
+	func() {
+		connection, err := sql.Open("postgres", dataSourceName)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to open database connection: %v", err))
+		}
+		defer connection.Close()
 
-	repository, err := NewRepository(connection)
-	if err != nil {
-		log.Fatalf("Failed to create repository: %v", err)
-	}
+		err = schema.MigrateUp(connection)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to migrate up: %v", err))
+		}
 
-	forumRepository = NewForumRepository(repository)
+		repository, err := NewRepository(connection)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to create repository: %v", err))
+		}
+		defer repository.Close()
 
-	code := m.Run()
+		forumRepository = NewForumRepository(repository)
 
-	err = schema.MigrateDown(connection)
-	if err != nil {
-		log.Fatalf("Failed to migrate down: %v", err)
-	}
+		code = m.Run()
 
-	repository.Close()
-	connection.Close()
+		err = schema.MigrateDown(connection)
+		if err != nil {
+			panic(fmt.Sprintf("Failed to migrate down: %v", err))
+		}
+	}()
 
 	os.Exit(code)
 }
@@ -76,8 +76,6 @@ func TestForumRepositoryTopics(t *testing.T) {
 		}
 	)
 
-	fmt.Println(time.Now().Truncate(time.Second).UTC())
-
 	id, err := forumRepository.TopicCreate(context.Background(), &domain.TopicCreate{
 		Title:   expectedTopic1.Title,
 		Content: expectedTopic1.Content,
@@ -89,9 +87,9 @@ func TestForumRepositoryTopics(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []*domain.Topic{expectedTopic1}, topics)
 
-	TopicByID, err := forumRepository.TopicByID(context.Background(), 1)
+	topicByID, err := forumRepository.TopicByID(context.Background(), 1)
 	require.NoError(t, err)
-	require.Equal(t, expectedTopic1, TopicByID)
+	require.Equal(t, expectedTopic1, topicByID)
 
 	// add topic 2
 	var (
@@ -114,9 +112,9 @@ func TestForumRepositoryTopics(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedTopic2.ID, id)
 
-	TopicByID, err = forumRepository.TopicByID(context.Background(), 2)
+	topicByID, err = forumRepository.TopicByID(context.Background(), 2)
 	require.NoError(t, err)
-	require.Equal(t, expectedTopic2, TopicByID)
+	require.Equal(t, expectedTopic2, topicByID)
 
 	// get topics
 	topics, err = forumRepository.Topics(context.Background(), 30, 0)
@@ -265,10 +263,10 @@ func TestForumRepositoryTopicsWithUnreadCommentsNumber(t *testing.T) {
 	// last read comment after reading comment 1 and comment 2 from topic 1
 	topic, err := forumRepository.TopicByIDWithLastReadComment(context.Background(), 1, 1)
 	require.NoError(t, err)
-	require.Equal(t, int64(2), topic.Comment.ID)
+	require.Equal(t, int64(2), topic.LastReadCommentID)
 
 	// last read comment = null from topic 1
 	topic, err = forumRepository.TopicByIDWithLastReadComment(context.Background(), 2, 1)
 	require.NoError(t, err)
-	require.Nil(t, topic.Comment)
+	require.Equal(t, int64(0), topic.LastReadCommentID)
 }

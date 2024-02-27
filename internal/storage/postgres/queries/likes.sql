@@ -7,8 +7,11 @@ ON CONFLICT (comment_id, created_by)
                   updated_by = EXCLUDED.updated_by;
 
 -- name: LikesByCommentIDs :many
-SELECT likes.comment_id, users.*
+SELECT likes.comment_id,
+       users.user_id,
+       users.username,
+       likes.created_at
 FROM likes
-  JOIN users ON likes.created_by = users.user_id
+         INNER JOIN users ON likes.created_by = users.user_id
 WHERE likes.comment_id = ANY (@comment_ids::BIGINT[])
   AND likes.active = TRUE;
