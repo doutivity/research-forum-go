@@ -13,8 +13,8 @@ import (
 
 const commentUpdate = `-- name: CommentUpdate :exec
 UPDATE comments
-SET content = $1, 
-    updated_at = $2, 
+SET content    = $1,
+    updated_at = $2,
     updated_by = $3
 WHERE comment_id = $4
 `
@@ -37,18 +37,15 @@ func (q *Queries) CommentUpdate(ctx context.Context, arg CommentUpdateParams) er
 }
 
 const commentsByID = `-- name: CommentsByID :one
-SELECT 
-    c.comment_id,
-    c.parent_comment_id,
-    c.content,
-    c.created_by,
-    c.created_at,
-    u.username AS author_username
-FROM 
-    comments c
-    INNER JOIN users u ON c.created_by = u.user_id
-WHERE 
-    c.comment_id = $1
+SELECT c.comment_id,
+       c.parent_comment_id,
+       c.content,
+       c.created_by,
+       c.created_at,
+       u.username AS author_username
+FROM comments c
+         INNER JOIN users u ON c.created_by = u.user_id
+WHERE c.comment_id = $1
 `
 
 type CommentsByIDRow struct {
@@ -75,28 +72,22 @@ func (q *Queries) CommentsByID(ctx context.Context, commentID int64) (CommentsBy
 }
 
 const commentsByTopic = `-- name: CommentsByTopic :many
-SELECT 
-    c.comment_id,
-    c.parent_comment_id,
-    c.content,
-    c.created_by,
-    c.created_at,
-    u.username AS author_username
-FROM 
-    comments c
-    INNER JOIN users u ON c.created_by = u.user_id
-WHERE 
-    c.topic_id = $1::BIGINT
-OFFSET 
-    $2::BIGINT 
-LIMIT 
-    $3::BIGINT
+SELECT c.comment_id,
+       c.parent_comment_id,
+       c.content,
+       c.created_by,
+       c.created_at,
+       u.username AS author_username
+FROM comments c
+         INNER JOIN users u ON c.created_by = u.user_id
+WHERE c.topic_id = $1::BIGINT
+OFFSET $2 LIMIT $3
 `
 
 type CommentsByTopicParams struct {
 	TopicID int64
-	Offset  int64
-	Limit   int64
+	Offset  int32
+	Limit   int32
 }
 
 type CommentsByTopicRow struct {

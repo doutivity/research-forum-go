@@ -22,12 +22,12 @@ FROM topics t
          INNER JOIN users u ON (t.created_by = u.user_id)
          INNER JOIN topic_last_update tlu ON (t.topic_id = tlu.topic_id)
 ORDER BY tlu.last_updated_at DESC
-OFFSET $1::BIGINT LIMIT $2::BIGINT
+OFFSET $1 LIMIT $2
 `
 
 type TopicsParams struct {
-	Offset int64
-	Limit  int64
+	Offset int32
+	Limit  int32
 }
 
 type TopicsRow struct {
@@ -131,7 +131,7 @@ SELECT t.topic_id,
        t.content,
        t.created_at,
        t.created_by,
-       u.username AS author_username,
+       u.username     AS author_username,
        lrc.comment_id AS last_read_comment_id
 FROM topics t
          INNER JOIN users u ON t.created_by = u.user_id
@@ -216,13 +216,13 @@ FROM topics t
          LEFT JOIN last_read_comments lrc ON t.topic_id = lrc.topic_id
     AND lrc.user_id = $1
 ORDER BY tlu.last_updated_at DESC
-OFFSET $2::BIGINT LIMIT $3::BIGINT
+OFFSET $2 LIMIT $3
 `
 
 type TopicsWithUnreadCommentsNumberParams struct {
 	ReadByUserID int64
-	Offset       int64
-	Limit        int64
+	Offset       int32
+	Limit        int32
 }
 
 type TopicsWithUnreadCommentsNumberRow struct {

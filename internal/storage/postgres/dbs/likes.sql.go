@@ -13,17 +13,21 @@ import (
 )
 
 const likesByCommentIDs = `-- name: LikesByCommentIDs :many
-SELECT likes.comment_id, likes.created_at, users.user_id, users.username
+SELECT likes.comment_id,
+       users.user_id,
+       users.username,
+       likes.created_at
 FROM likes
-JOIN users ON likes.created_by = users.user_id
-WHERE likes.comment_id = ANY($1::BIGINT[]) AND likes.active = TRUE
+         INNER JOIN users ON likes.created_by = users.user_id
+WHERE likes.comment_id = ANY ($1::BIGINT[])
+  AND likes.active = TRUE
 `
 
 type LikesByCommentIDsRow struct {
 	CommentID int64
-	CreatedAt time.Time
 	UserID    int64
 	Username  string
+	CreatedAt time.Time
 }
 
 func (q *Queries) LikesByCommentIDs(ctx context.Context, commentIds []int64) ([]LikesByCommentIDsRow, error) {
@@ -37,9 +41,9 @@ func (q *Queries) LikesByCommentIDs(ctx context.Context, commentIds []int64) ([]
 		var i LikesByCommentIDsRow
 		if err := rows.Scan(
 			&i.CommentID,
-			&i.CreatedAt,
 			&i.UserID,
 			&i.Username,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -57,11 +61,10 @@ func (q *Queries) LikesByCommentIDs(ctx context.Context, commentIds []int64) ([]
 const likesUpsert = `-- name: LikesUpsert :exec
 INSERT INTO likes (comment_id, active, created_at, created_by, updated_at, updated_by)
 VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (comment_id, created_by) 
-DO UPDATE SET 
-    active = EXCLUDED.active, 
-    updated_at = EXCLUDED.updated_at, 
-    updated_by = EXCLUDED.updated_by
+ON CONFLICT (comment_id, created_by)
+    DO UPDATE SET active     = EXCLUDED.active,
+                  updated_at = EXCLUDED.updated_at,
+                  updated_by = EXCLUDED.updated_by
 `
 
 type LikesUpsertParams struct {

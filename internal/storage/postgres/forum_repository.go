@@ -72,12 +72,12 @@ func (r *ForumRepository) CommentUpdate(
 
 func (r *ForumRepository) CommentsByTopic(
 	ctx context.Context,
-	topicId int64,
-	limit int64,
-	offset int64,
+	topicID int64,
+	limit int32,
+	offset int32,
 ) ([]*domain.Comment, error) {
 	rows, err := r.db.Queries().CommentsByTopic(ctx, dbs.CommentsByTopicParams{
-		TopicID: topicId,
+		TopicID: topicID,
 		Offset:  offset,
 		Limit:   limit,
 	})
@@ -89,10 +89,13 @@ func (r *ForumRepository) CommentsByTopic(
 	for i, row := range rows {
 		var parentCommentID *int64
 		if row.ParentCommentID.Valid {
-			parentCommentID = &row.ParentCommentID.Int64
-		} else {
-			parentCommentID = nil
+			// https://go.dev/blog/loopvar-preview
+			// for Go1.21 and earlier
+			value := row.ParentCommentID.Int64
+
+			parentCommentID = &value
 		}
+
 		comments[i] = &domain.Comment{
 			ID:              row.CommentID,
 			ParentCommentID: parentCommentID,
@@ -115,9 +118,10 @@ func (r *ForumRepository) CommentCreate(
 ) (int64, error) {
 	var parentCommentID sql.NullInt64
 	if comment.ParentCommentID != nil {
-		parentCommentID = sql.NullInt64{Int64: *comment.ParentCommentID, Valid: true}
-	} else {
-		parentCommentID = sql.NullInt64{Valid: false}
+		parentCommentID = sql.NullInt64{
+			Int64: *comment.ParentCommentID,
+			Valid: true,
+		}
 	}
 
 	var id int64
@@ -185,61 +189,27 @@ func (r *ForumRepository) TopicByIDWithLastReadComment(
 	topicID int64,
 	userID int64,
 ) (*domain.TopicWithUnreadComment, error) {
-	var topicWithUnreadComment *domain.TopicWithUnreadComment
-
-	txErr := r.db.WithTransaction(ctx, func(queries *dbs.Queries) error {
-		topic, err := queries.TopicsGetByIDWithLastReadComment(ctx, dbs.TopicsGetByIDWithLastReadCommentParams{
-			UserID:  userID,
-			TopicID: topicID,
-		})
-		if err != nil {
-			return err
-		}
-
-		topicWithUnreadComment = &domain.TopicWithUnreadComment{
-			Topic: &domain.Topic{
-				ID:        topic.TopicID,
-				Title:     topic.Title,
-				Content:   topic.Content,
-				CreatedAt: topic.CreatedAt,
-				Author: &domain.TopicAuthor{
-					ID:       topic.CreatedBy,
-					Username: topic.AuthorUsername,
-				},
-			},
-			Comment: nil,
-		}
-		if !topic.LastReadCommentID.Valid {
-			return nil
-		}
-
-		comment, err := queries.CommentsByID(ctx, topic.LastReadCommentID.Int64)
-		if err != nil {
-			return err
-		}
-		var parentCommentID *int64
-		if comment.ParentCommentID.Valid {
-			parentCommentID = &comment.ParentCommentID.Int64
-		} else {
-			parentCommentID = nil
-		}
-
-		topicWithUnreadComment.Comment = &domain.Comment{
-			ID:              comment.CommentID,
-			ParentCommentID: parentCommentID,
-			Content:         comment.Content,
-			CreatedAt:       comment.CreatedAt,
-			Author: &domain.CommentAuthor{
-				ID:       comment.CreatedBy,
-				Username: comment.AuthorUsername,
-			},
-		}
-		return nil
+	topic, err := r.db.Queries().TopicsGetByIDWithLastReadComment(ctx, dbs.TopicsGetByIDWithLastReadCommentParams{
+		UserID:  userID,
+		TopicID: topicID,
 	})
-	if txErr != nil {
-		return nil, txErr
+	if err != nil {
+		return nil, err
 	}
-	return topicWithUnreadComment, nil
+
+	return &domain.TopicWithUnreadComment{
+		Topic: &domain.Topic{
+			ID:        topic.TopicID,
+			Title:     topic.Title,
+			Content:   topic.Content,
+			CreatedAt: topic.CreatedAt,
+			Author: &domain.TopicAuthor{
+				ID:       topic.CreatedBy,
+				Username: topic.AuthorUsername,
+			},
+		},
+		LastReadCommentID: topic.LastReadCommentID.Int64,
+	}, nil
 }
 
 func (r *ForumRepository) TopicCreate(
@@ -289,8 +259,8 @@ func (r *ForumRepository) TopicCreate(
 
 func (r *ForumRepository) Topics(
 	ctx context.Context,
-	limit int64,
-	offset int64,
+	limit int32,
+	offset int32,
 ) ([]*domain.Topic, error) {
 	rows, err := r.db.Queries().Topics(ctx, dbs.TopicsParams{
 		Offset: offset,
@@ -319,8 +289,8 @@ func (r *ForumRepository) Topics(
 func (r *ForumRepository) TopicsWithUnreadCommentsNumber(
 	ctx context.Context,
 	userID int64,
-	limit int64,
-	offset int64,
+	limit int32,
+	offset int32,
 ) ([]*domain.TopicsWithUnreadCommentsNumber, error) {
 	rows, err := r.db.Queries().TopicsWithUnreadCommentsNumber(ctx, dbs.TopicsWithUnreadCommentsNumberParams{
 		ReadByUserID: userID,
