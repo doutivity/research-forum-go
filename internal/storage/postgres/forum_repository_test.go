@@ -216,34 +216,16 @@ func TestForumRepositoryTopicsOrder(t *testing.T) {
 func TestForumRepositoryLikes(t *testing.T) {
 	// like comment 1
 	like1time := time.Now().Truncate(time.Second).UTC()
-	err := forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
-		CommentID: 1,
-		LikeAuthor: &domain.LikeAuthor{
-			ID:       1,
-			Username: "Admin",
-		},
-	}, true, like1time)
+	err := forumRepository.LikeUpdate(context.Background(), 1, true, like1time, 1)
 	require.NoError(t, err)
 
 	// like comment 2
 	like2time := time.Now().Truncate(time.Second).UTC()
-	err = forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
-		CommentID: 2,
-		LikeAuthor: &domain.LikeAuthor{
-			ID:       1,
-			Username: "Admin",
-		},
-	}, true, like2time)
+	err = forumRepository.LikeUpdate(context.Background(), 2, true, like2time, 1)
 	require.NoError(t, err)
 
 	// unlike comment 1
-	err = forumRepository.LikeUpdate(context.Background(), &domain.LikeUpdate{
-		CommentID: 1,
-		LikeAuthor: &domain.LikeAuthor{
-			ID:       1,
-			Username: "Admin",
-		},
-	}, false, time.Now().Truncate(time.Second).UTC())
+	err = forumRepository.LikeUpdate(context.Background(), 1, false, time.Now().Truncate(time.Second).UTC(), 1)
 	require.NoError(t, err)
 
 	// get active likes for comments

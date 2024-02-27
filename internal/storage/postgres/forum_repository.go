@@ -185,51 +185,59 @@ func (r *ForumRepository) TopicByIDWithLastReadComment(
 	topicID int64,
 	userID int64,
 ) (*domain.TopicWithUnreadComment, error) {
-	topic, err := r.db.Queries().TopicsGetByIDWithLastReadComment(ctx, dbs.TopicsGetByIDWithLastReadCommentParams{
-		UserID:  userID,
-		TopicID: topicID,
-	})
-	if err != nil {
-		return nil, err
-	}
+	var topicWithUnreadComment *domain.TopicWithUnreadComment
 
-	topicWithUnreadComment := &domain.TopicWithUnreadComment{
-		Topic: &domain.Topic{
-			ID:        topic.TopicID,
-			Title:     topic.Title,
-			Content:   topic.Content,
-			CreatedAt: topic.CreatedAt,
-			Author: &domain.TopicAuthor{
-				ID:       topic.CreatedBy,
-				Username: topic.AuthorUsername,
+	txErr := r.db.WithTransaction(ctx, func(queries *dbs.Queries) error {
+		topic, err := queries.TopicsGetByIDWithLastReadComment(ctx, dbs.TopicsGetByIDWithLastReadCommentParams{
+			UserID:  userID,
+			TopicID: topicID,
+		})
+		if err != nil {
+			return err
+		}
+
+		topicWithUnreadComment = &domain.TopicWithUnreadComment{
+			Topic: &domain.Topic{
+				ID:        topic.TopicID,
+				Title:     topic.Title,
+				Content:   topic.Content,
+				CreatedAt: topic.CreatedAt,
+				Author: &domain.TopicAuthor{
+					ID:       topic.CreatedBy,
+					Username: topic.AuthorUsername,
+				},
 			},
-		},
-		Comment: nil,
-	}
-	if !topic.LastReadCommentID.Valid {
-		return topicWithUnreadComment, nil
-	}
+			Comment: nil,
+		}
+		if !topic.LastReadCommentID.Valid {
+			return nil
+		}
 
-	comment, err := r.db.Queries().CommentsByID(ctx, topic.LastReadCommentID.Int64)
-	if err != nil {
-		return nil, err
-	}
-	var parentCommentID *int64
-	if comment.ParentCommentID.Valid {
-		parentCommentID = &comment.ParentCommentID.Int64
-	} else {
-		parentCommentID = nil
-	}
+		comment, err := queries.CommentsByID(ctx, topic.LastReadCommentID.Int64)
+		if err != nil {
+			return err
+		}
+		var parentCommentID *int64
+		if comment.ParentCommentID.Valid {
+			parentCommentID = &comment.ParentCommentID.Int64
+		} else {
+			parentCommentID = nil
+		}
 
-	topicWithUnreadComment.Comment = &domain.Comment{
-		ID:              comment.CommentID,
-		ParentCommentID: parentCommentID,
-		Content:         comment.Content,
-		CreatedAt:       comment.CreatedAt,
-		Author: &domain.CommentAuthor{
-			ID:       comment.CreatedBy,
-			Username: comment.AuthorUsername,
-		},
+		topicWithUnreadComment.Comment = &domain.Comment{
+			ID:              comment.CommentID,
+			ParentCommentID: parentCommentID,
+			Content:         comment.Content,
+			CreatedAt:       comment.CreatedAt,
+			Author: &domain.CommentAuthor{
+				ID:       comment.CreatedBy,
+				Username: comment.AuthorUsername,
+			},
+		}
+		return nil
+	})
+	if txErr != nil {
+		return nil, txErr
 	}
 	return topicWithUnreadComment, nil
 }
